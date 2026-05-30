@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Password Strength Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #080c14;
+      --surface:  rgba(255,255,255,0.04);
+      --border:   rgba(255,255,255,0.08);
+      --weak:     #ff4d4d;
+      --fair:     #ffaa00;
+      --strong:   #00d084;
+      --vstrong:  #00cfff;
+      --white:    #f0f4ff;
+      --mist:     #8899aa;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--white);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1rem 6rem;
+      overflow-x: hidden;
+    }
+
+    /* background glow */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% 10%, rgba(0,150,255,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 50% at 85% 85%, rgba(0,255,150,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      animation: fadeDown 0.6s ease both;
+    }
+    .lock-icon {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+      display: block;
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { transform: scale(1);    filter: drop-shadow(0 0 8px rgba(0,200,255,0.3)); }
+      50%      { transform: scale(1.08); filter: drop-shadow(0 0 20px rgba(0,200,255,0.6)); }
+    }
+    header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--white) 30%, #00cfff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header p {
+      margin-top: 0.5rem;
+      color: var(--mist);
+      font-size: 0.9rem;
+    }
+
+    @keyframes fadeDown {
+      from { opacity:0; transform:translateY(-20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ── Main card ── */
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 2rem;
+      backdrop-filter: blur(16px);
+      animation: fadeDown 0.6s 0.1s ease both;
+    }
+
+    /* ── Input ── */
+    .input-wrap {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+    .input-wrap input {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem 3.5rem 1rem 1.2rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 1rem;
+      color: var(--white);
+      outline: none;
+      transition: border-color 0.3s;
+      letter-spacing: 0.05em;
+    }
+    .input-wrap input:focus { border-color: #00cfff; }
+    .input-wrap input::placeholder { color: var(--mist); font-family: 'DM Sans', sans-serif; letter-spacing: 0; }
+
+    .toggle-btn {
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--mist);
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 0.2rem;
+      transition: color 0.2s;
+    }
+    .toggle-btn:hover { color: var(--white); }
+
+    /* ── Score bar ── */
+    .score-section { margin-bottom: 1.5rem; }
+    .score-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+    .strength-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      transition: color 0.4s;
+    }
+    .score-number {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--mist);
+    }
+    .bar-track {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.6s cubic-bezier(.4,0,.2,1), background 0.4s;
+    }
+
+    /* ── Info row (entropy + crack time) ── */
+    .info-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+      margin-bottom: 1.5rem;
+    }
+    .info-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+    }
+    .info-box .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--mist);
+      margin-bottom: 0.3rem;
+    }
+    .info-box .value {
+      font-family: 'DM Mono', monospace;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    /* ── Checks grid ── */
+    .checks-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--mist);
+      margin-bottom: 0.8rem;
+    }
+    .checks-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      padding: 0.5rem 0.7rem;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      transition: all 0.3s;
+    }
+    .check-item.pass {
+      border-color: rgba(0,208,132,0.3);
+      background: rgba(0,208,132,0.06);
+    }
+    .check-item.fail {
+      border-color: rgba(255,77,77,0.2);
+      background: rgba(255,77,77,0.04);
+    }
+    .check-icon { font-size: 0.9rem; flex-shrink: 0; }
+
+    /* ── Suggestions ── */
+    #suggestionsBox { margin-bottom: 1.5rem; display: none; }
+    .suggestions-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #ffaa00;
+      margin-bottom: 0.7rem;
+    }
+    .suggestion-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: #c8d8e8;
+      margin-bottom: 0.4rem;
+      line-height: 1.5;
+    }
+    .suggestion-item::before { content: "→"; color: #ffaa00; flex-shrink: 0; }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 0.8rem;
+    }
+    .btn {
+      flex: 1;
+      padding: 0.85rem;
+      border-radius: 12px;
+      border: none;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn:hover  { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-generate {
+      background: linear-gradient(135deg, #00cfff, #0090cc);
+      color: #080c14;
+    }
+    .btn-copy {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      color: var(--white);
+    }
+
+    /* ── Generated password box ── */
+    #generatedBox {
+      display: none;
+      margin-top: 1rem;
+      background: rgba(0,207,255,0.06);
+      border: 1px solid rgba(0,207,255,0.2);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+    }
+    #generatedBox .gen-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #00cfff;
+      margin-bottom: 0.4rem;
+    }
+    #generatedPwd {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.95rem;
+      word-break: break-all;
+      color: var(--white);
+    }
+
+    /* ── Empty state ── */
+    #emptyState {
+      text-align: center;
+      padding: 1.5rem 0;
+      color: var(--mist);
+      font-size: 0.9rem;
+    }
+    #emptyState .big { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #00d084;
+      color: #080c14;
+      padding: 0.7rem 1.5rem;
+      border-radius: 99px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: transform 0.3s;
+      z-index: 999;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="lock-icon">🔐</span>
+  <h1>Password Strength Analyzer</h1>
+  <p>Check how secure your password really is</p>
+</header>
+
+<div class="card">
+
+  <!-- Input -->
+  <div class="input-wrap">
+    <input type="password" id="pwdInput" placeholder="Type your password here…" oninput="analyze()"/>
+    <button class="toggle-btn" onclick="toggleVisibility()" title="Show/Hide">👁️</button>
+  </div>
+
+  <!-- Empty state -->
+  <div id="emptyState">
+    <div class="big">🔑</div>
+    Start typing to analyze your password
+  </div>
+
+  <!-- Results (hidden until typing) -->
+  <div id="results" style="display:none">
+
+    <!-- Score bar -->
+    <div class="score-section">
+      <div class="score-header">
+        <span class="strength-label" id="strengthLabel">—</span>
+        <span class="score-number" id="scoreNumber">0 / 100</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="barFill"></div>
+      </div>
+    </div>
+
+    <!-- Info row -->
+    <div class="info-row">
+      <div class="info-box">
+        <div class="label">Entropy</div>
+        <div class="value" id="entropyVal">—</div>
+      </div>
+      <div class="info-box">
+        <div class="label">Crack Time</div>
+        <div class="value" id="crackVal">—</div>
+      </div>
+    </div>
+
+    <!-- Checks -->
+    <div class="checks-title">Security Checks</div>
+    <div class="checks-grid" id="checksGrid"></div>
+
+    <!-- Suggestions -->
+    <div id="suggestionsBox">
+      <div class="suggestions-title">💡 Suggestions</div>
+      <div id="suggestionsList"></div>
+    </div>
+
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn btn-generate" onclick="generatePassword()">✨ Generate Strong</button>
+    <button class="btn btn-copy" onclick="copyPassword()">📋 Copy</button>
+  </div>
+
+  <!-- Generated password display -->
+  <div id="generatedBox">
+    <div class="gen-label">Generated Password</div>
+    <div id="generatedPwd"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast">Copied! ✅</div>
+
+<script>
+  const COMMON = ["password","123456","password123","admin","letmein","qwerty",
+    "abc123","monkey","iloveyou","sunshine","princess","dragon","master",
+    "hello","welcome","shadow","superman","football","charlie","donald"];
+
+  const checksConfig = [
+    { key: "length8",     label: "8+ characters" },
+    { key: "length12",    label: "12+ characters" },
+    { key: "uppercase",   label: "Uppercase (A-Z)" },
+    { key: "lowercase",   label: "Lowercase (a-z)" },
+    { key: "numbers",     label: "Numbers (0-9)" },
+    { key: "special",     label: "Special chars (!@#...)" },
+    { key: "notCommon",   label: "Not common password" },
+    { key: "noRepeats",   label: "No repeated chars" },
+    { key: "noSequences", label: "No sequences (abc/123)" },
+    { key: "mixedTypes",  label: "3+ character types" },
+  ];
+
+  function analyze() {
+    const pwd = document.getElementById("pwdInput").value;
+
+    if (!pwd) {
+      document.getElementById("emptyState").style.display = "block";
+      document.getElementById("results").style.display    = "none";
+      return;
+    }
+
+    document.getElementById("emptyState").style.display = "none";
+    document.getElementById("results").style.display    = "block";
+
+    const r = analyzePassword(pwd);
+    renderResults(r);
+  }
+
+  function analyzePassword(pwd) {
+    let score = 0;
+    const suggestions = [];
+    const checks = {};
+
+    // Length
+    checks.length8     = pwd.length >= 8;
+    checks.length12    = pwd.length >= 12;
+    if      (pwd.length >= 16) score += 25;
+    else if (pwd.length >= 12) score += 20;
+    else if (pwd.length >= 8)  score += 10;
+    else suggestions.push("Use at least 8 characters (12+ is ideal)");
+
+    // Character types
+    checks.uppercase = /[A-Z]/.test(pwd);
+    checks.lowercase = /[a-z]/.test(pwd);
+    checks.numbers   = /\d/.test(pwd);
+    checks.special   = /[!@#$%^&*()\-_=+\[\]{}|;:'",.<>?/`~\\]/.test(pwd);
+
+    if (checks.uppercase) score += 15; else suggestions.push("Add uppercase letters (A-Z)");
+    if (checks.lowercase) score += 15; else suggestions.push("Add lowercase letters (a-z)");
+    if (checks.numbers)   score += 15; else suggestions.push("Add numbers (0-9)");
+    if (checks.special)   score += 20; else suggestions.push("Add special characters (!@#$%...)");
+
+    // Common password
+    checks.notCommon = !COMMON.includes(pwd.toLowerCase());
+    if (!checks.notCommon) { score -= 40; suggestions.push("This is a very common password — change it immediately!"); }
+
+    // Repeated chars
+    checks.noRepeats = !(/(.)\1{2,}/.test(pwd));
+    if (!checks.noRepeats) { score -= 10; suggestions.push("Avoid repeating the same character 3+ times"); }
+
+    // Sequences
+    const seqs = ["abcdefghijklmnopqrstuvwxyz","0123456789","qwertyuiop","asdfghjkl"];
+    let hasSeq = false;
+    for (const seq of seqs) {
+      for (let i = 0; i < seq.length - 2; i++) {
+        if (pwd.toLowerCase().includes(seq.slice(i, i+3))) { hasSeq = true; break; }
+      }
+    }
+    checks.noSequences = !hasSeq;
+    if (!checks.noSequences) { score -= 10; suggestions.push("Avoid sequences like 'abc' or '123'"); }
+
+    // Mixed types
+    const typeCount = [checks.uppercase, checks.lowercase, checks.numbers, checks.special].filter(Boolean).length;
+    checks.mixedTypes = typeCount >= 3;
+    if (!checks.mixedTypes) suggestions.push("Mix at least 3 types: uppercase, lowercase, numbers, symbols");
+
+    score = Math.max(0, Math.min(100, score));
+
+    // Entropy
+    let charsetSize = 0;
+    if (checks.lowercase) charsetSize += 26;
+    if (checks.uppercase) charsetSize += 26;
+    if (checks.numbers)   charsetSize += 10;
+    if (checks.special)   charsetSize += 32;
+    const entropy = charsetSize > 0 ? (pwd.length * Math.log2(charsetSize)).toFixed(1) : 0;
+
+    // Crack time
+    const gps = 10_000_000_000;
+    const combos = charsetSize > 0 ? Math.pow(charsetSize, pwd.length) : 1;
+    const secs   = combos / gps;
+    let crackTime;
+    if      (secs < 1)          crackTime = "Instantly";
+    else if (secs < 60)         crackTime = `${Math.floor(secs)}s`;
+    else if (secs < 3600)       crackTime = `${Math.floor(secs/60)} min`;
+    else if (secs < 86400)      crackTime = `${Math.floor(secs/3600)} hrs`;
+    else if (secs < 31536000)   crackTime = `${Math.floor(secs/86400)} days`;
+    else if (secs < 3.15e12)    crackTime = `${Math.floor(secs/31536000)} years`;
+    else                        crackTime = "Centuries ✅";
+
+    // Strength label
+    let strength, color;
+    if      (score >= 80) { strength = "Very Strong 💪"; color = "var(--vstrong)"; }
+    else if (score >= 60) { strength = "Strong ✅";      color = "var(--strong)"; }
+    else if (score >= 40) { strength = "Fair ⚠️";        color = "var(--fair)"; }
+    else                  { strength = "Weak ❌";         color = "var(--weak)"; }
+
+    return { score, strength, color, entropy, crackTime, checks, suggestions };
+  }
+
+  function renderResults(r) {
+    // Score bar
+    document.getElementById("strengthLabel").textContent = r.strength;
+    document.getElementById("strengthLabel").style.color = r.color;
+    document.getElementById("scoreNumber").textContent   = `${r.score} / 100`;
+    const bar = document.getElementById("barFill");
+    bar.style.width      = r.score + "%";
+    bar.style.background = r.color;
+
+    // Info
+    document.getElementById("entropyVal").textContent = r.entropy + " bits";
+    document.getElementById("crackVal").textContent   = r.crackTime;
+
+    // Checks
+    const grid = document.getElementById("checksGrid");
+    grid.innerHTML = "";
+    checksConfig.forEach(({ key, label }) => {
+      const pass = r.checks[key];
+      const el   = document.createElement("div");
+      el.className = `check-item ${pass ? "pass" : "fail"}`;
+      el.innerHTML = `<span class="check-icon">${pass ? "✅" : "❌"}</span><span>${label}</span>`;
+      grid.appendChild(el);
+    });
+
+    // Suggestions
+    const box  = document.getElementById("suggestionsBox");
+    const list = document.getElementById("suggestionsList");
+    if (r.suggestions.length > 0) {
+      box.style.display = "block";
+      list.innerHTML = r.suggestions.map(s =>
+        `<div class="suggestion-item">${s}</div>`
+      ).join("");
+    } else {
+      box.style.display = "none";
+    }
+  }
+
+  function toggleVisibility() {
+    const input = document.getElementById("pwdInput");
+    input.type  = input.type === "password" ? "text" : "password";
+  }
+
+  function generatePassword() {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}?";
+    let pwd = "";
+    // ensure all types
+    const must = ["abcdefghijklmnopqrstuvwxyz","ABCDEFGHIJKLMNOPQRSTUVWXYZ","0123456789","!@#$%^&*()_+"];
+    must.forEach(s => pwd += s[Math.floor(Math.random() * s.length)]);
+    for (let i = pwd.length; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+    pwd = pwd.split("").sort(() => Math.random() - 0.5).join("");
+
+    document.getElementById("pwdInput").value = pwd;
+    document.getElementById("pwdInput").type  = "text";
+    document.getElementById("generatedBox").style.display = "block";
+    document.getElementById("generatedPwd").textContent   = pwd;
+    analyze();
+  }
+
+  function copyPassword() {
+    const pwd = document.getElementById("pwdInput").value;
+    if (!pwd) return;
+    navigator.clipboard.writeText(pwd).then(() => showToast());
+  }
+
+  function showToast() {
+    const t = document.getElementById("toast");
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2000);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# No external libraries needed!
+# All modules used are built into Python:
+# - re       (regular expressions)
+# - math     (entropy calculation)
+# - string   (character sets)
+# - secrets  (secure password generation)
+
+# Only needed if you want to load a .env file
+python-dotenv>=1.0.0
