@@ -144,9 +144,9 @@ crack_time   = combinations / 10,000,000,000
 
 ## 🙋 Author
 
-Built by **[Your Name]** — junior developer passionate about cybersecurity.
+Built by **Fatima Koumayha** — junior developer passionate about cybersecurity.
 
-- GitHub: [@yourusername](https://github.com/yourusername)
+- GitHub: [@fatima koumayha](https://github.com/fatimakom/password-strength-analyzer-py.git)
 - LinkedIn: [linkedin.com/in/yourprofile](https://linkedin.com/in/yourprofile)
 
 ---
